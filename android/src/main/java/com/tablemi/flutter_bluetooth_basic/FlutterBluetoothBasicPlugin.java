@@ -15,8 +15,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+
+import io.flutter.embedding.engine.plugins.activity.ActivityAware;
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.EventChannel.EventSink;
 import io.flutter.plugin.common.EventChannel.StreamHandler;
@@ -24,8 +29,9 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.PluginRegistry.Registrar;
+import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener;
+import io.flutter.embedding.engine.plugins.FlutterPlugin;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,28 +40,45 @@ import java.util.Map;
 import java.util.Vector;
 
 /** FlutterBluetoothBasicPlugin */
-public class FlutterBluetoothBasicPlugin implements MethodCallHandler, RequestPermissionsResultListener {
+public class FlutterBluetoothBasicPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware, RequestPermissionsResultListener {
   private static final String TAG = "BluetoothBasicPlugin";
   private int id = 0;
   private ThreadPool threadPool;
   private static final int REQUEST_COARSE_LOCATION_PERMISSIONS = 1451;
   private static final String NAMESPACE = "flutter_bluetooth_basic";
-  private final Registrar registrar;
-  private final Activity activity;
+  private PluginRegistry.Registrar registrar;
   private final MethodChannel channel;
   private final EventChannel stateChannel;
-  private final BluetoothManager mBluetoothManager;
+  private BluetoothManager mBluetoothManager;
   private BluetoothAdapter mBluetoothAdapter;
 
   private MethodCall pendingCall;
   private Result pendingResult;
+  private Activity activity;
 
-  public static void registerWith(Registrar registrar) {
+  @Override
+  public void onAttachedToEngine(FlutterPluginBinding binding) {
+    // TODO: your plugin is now attached to a Flutter experience.
+    new FlutterBluetoothBasicPlugin(binding);
+  }
+
+  @Override
+  public void onDetachedFromEngine(FlutterPluginBinding binding) {
+  }
+
+  public static void registerWith(PluginRegistry.Registrar registrar) {
     final FlutterBluetoothBasicPlugin instance = new FlutterBluetoothBasicPlugin(registrar);
     registrar.addRequestPermissionsResultListener(instance);
   }
 
-  FlutterBluetoothBasicPlugin(Registrar r){
+  FlutterBluetoothBasicPlugin(FlutterPluginBinding binding){
+    this.channel = new MethodChannel(binding.getBinaryMessenger(), NAMESPACE + "/methods");
+    this.stateChannel = new EventChannel(binding.getBinaryMessenger(), NAMESPACE + "/state");
+    channel.setMethodCallHandler(this);
+    stateChannel.setStreamHandler(stateStreamHandler);
+  }
+
+  FlutterBluetoothBasicPlugin(PluginRegistry.Registrar r){
     this.registrar = r;
     this.activity = r.activity();
     this.channel = new MethodChannel(registrar.messenger(), NAMESPACE + "/methods");
@@ -64,6 +87,15 @@ public class FlutterBluetoothBasicPlugin implements MethodCallHandler, RequestPe
     this.mBluetoothAdapter = mBluetoothManager.getAdapter();
     channel.setMethodCallHandler(this);
     stateChannel.setStreamHandler(stateStreamHandler);
+  }
+
+  private void updateBluetoothAdapterAndManager() {
+    this.mBluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
+    this.mBluetoothAdapter = mBluetoothManager.getAdapter();
+  }
+
+  private void refreshActivity() {
+    updateBluetoothAdapterAndManager();
   }
 
   @Override
@@ -341,5 +373,27 @@ public class FlutterBluetoothBasicPlugin implements MethodCallHandler, RequestPe
   };
 
 
+  @Override
+  public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+    this.activity = binding.getActivity();
+    refreshActivity();
+    binding.addRequestPermissionsResultListener(this);
+  }
 
+  @Override
+  public void onDetachedFromActivityForConfigChanges() {
+    this.activity = null;
+  }
+
+  @Override
+  public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
+    this.activity = binding.getActivity();
+    refreshActivity();
+    binding.addRequestPermissionsResultListener(this);
+  }
+
+  @Override
+  public void onDetachedFromActivity() {
+    this.activity = null;
+  }
 }
