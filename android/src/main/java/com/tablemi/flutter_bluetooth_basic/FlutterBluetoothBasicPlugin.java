@@ -265,9 +265,13 @@ public class FlutterBluetoothBasicPlugin implements FlutterPlugin, MethodCallHan
      */
     private boolean disconnect() {
 
-        if (DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id] != null && DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].mPort != null) {
-            DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].reader.cancel();
-            DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].mPort.closePort();
+        if (DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id] != null) {
+            if (DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].reader != null) {
+                DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].reader.cancel();
+            }
+            if (DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].mPort != null) {
+                DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].mPort.closePort();
+            }
             DeviceConnFactoryManager.getDeviceConnFactoryManagers()[id].mPort = null;
         }
         return true;
